@@ -1,4 +1,4 @@
-const Graph = require('../src/graph');
+const Graph = require('../src/index_builder');
 
 describe("integration test", function() {
     this.timeout(30000);

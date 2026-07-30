@@ -22,6 +22,27 @@ node src/server.js
 
 Une fois le serveur démarré, les requêtes (HTTP POST) peuvent être envoyées à [`localhost:4000/graphql`](http://localhost:4000/graphql) (accéder à cette adresse depuis un navigateur affichera une interface graphique).
 
+### Configuration (variables d'environnement)
+
+Le serveur est configurable via les variables d'environnement suivantes. Les valeurs par défaut conviennent à la plupart des déploiements.
+
+| Variable | Défaut | Rôle |
+| --- | --- | --- |
+| `PORT` | `4000` | Port d'écoute. |
+| `WEB_CONCURRENCY` | nb de CPU (max 4) | Nombre de *workers* (`cluster`). Chaque worker traite les requêtes en parallèle ; `1` désactive le clustering. |
+| `RATE_LIMIT_MAX` | `300` | Nombre maximum de requêtes par fenêtre et par IP client. |
+| `RATE_LIMIT_WINDOW_MS` | `60000` | Durée de la fenêtre du limiteur, en millisecondes. |
+| `RATE_LIMIT_DISABLED` | `false` | `true` désactive complètement le limiteur. |
+| `INTERNAL_API_KEY` | *(vide)* | Secret partagé : une requête présentant ce secret dans l'en-tête d'*allowlist* contourne entièrement le limiteur. Vide = *allowlist* inactive. |
+| `INTERNAL_API_KEY_HEADER` | `x-internal-key` | Nom de l'en-tête portant le secret partagé. |
+| `CACHE_TTL_SECONDS` | `300` | Durée de vie du cache mémoire des réponses. `0` désactive. |
+| `CACHE_MAX_ENTRIES` | `500` | Nombre maximum de requêtes distinctes conservées en cache (LRU). |
+| `CACHE_DISABLED` | `false` | `true` désactive le cache. |
+
+**Limiteur de débit.** La clé est l'IP du client (résolue via `CF-Connecting-IP` puis `X-Forwarded-For` derrière Cloudflare/Render). Un dépassement renvoie `429` avec les en-têtes `RateLimit-*` et `Retry-After`. Pour exempter un backend interne, préférer le secret partagé (`INTERNAL_API_KEY`) à une *allowlist* par IP : les IP de sortie (Render) ne sont pas stables. *Note :* les compteurs sont propres à chaque worker, la limite globale effective est donc `RATE_LIMIT_MAX × WEB_CONCURRENCY`.
+
+**Cache & keep-alive.** Les données BDPM sont chargées une seule fois au démarrage et le schéma est en lecture seule : les réponses à des requêtes identiques sont donc mises en cache en mémoire et servies avec un en-tête `Cache-Control`. Les connexions HTTP sont maintenues ouvertes (`keep-alive`) pour éviter une poignée de main TLS à chaque requête ; les clients doivent réutiliser leurs connexions (ex. une `Session` côté client).
+
 ```bash
 curl http://localhost:4000/graphql -H "Content-Type: application/graphql" -d "query { medicaments(CIS: [62204255]) { denomination } }"
 
